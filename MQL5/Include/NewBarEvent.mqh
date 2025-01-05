@@ -2,12 +2,10 @@
 //|                                                  NewBarEvent.mqh |
 //|                                         Copyright 2025, rpanchyk |
 //|                                      https://github.com/rpanchyk |
+//|                      Based on https://www.mql5.com/ru/code/38100 |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2025, rpanchyk"
 #property link      "https://github.com/rpanchyk"
-
-// includes
-#include <Generic\HashMap.mqh>
 
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -24,12 +22,16 @@ public:
    // Method 2 (allows single check only)
    bool              IsNewBar(ENUM_TIMEFRAMES timeframe);
 private:
+   bool              IsValidTimeframe(ENUM_TIMEFRAMES timeframe);
+   int               FindTimeframeIndex(ENUM_TIMEFRAMES timeframe);
+   void              RegisterTimeframe(ENUM_TIMEFRAMES timeframe);
+
    string            m_Symbol;
    bool              m_Debug;
 
    ENUM_TIMEFRAMES   m_Timeframes[];
-   CHashMap<ENUM_TIMEFRAMES, int>* m_Bars;
-   CHashMap<ENUM_TIMEFRAMES, bool>* m_Markers;
+   int               m_Bars[];
+   bool              m_Results[];
   };
 
 //+------------------------------------------------------------------+
@@ -39,43 +41,6 @@ NewBarEvent::NewBarEvent(string symbol, bool debug = false)
   {
    m_Symbol = symbol;
    m_Debug = debug;
-
-   ENUM_TIMEFRAMES timeframes[] =
-     {
-      PERIOD_M1,
-      PERIOD_M2,
-      PERIOD_M3,
-      PERIOD_M4,
-      PERIOD_M5,
-      PERIOD_M6,
-      PERIOD_M10,
-      PERIOD_M12,
-      PERIOD_M15,
-      PERIOD_M20,
-      PERIOD_M30,
-      PERIOD_H1,
-      PERIOD_H2,
-      PERIOD_H3,
-      PERIOD_H4,
-      PERIOD_H6,
-      PERIOD_H8,
-      PERIOD_H12,
-      PERIOD_D1,
-      PERIOD_W1,
-      PERIOD_MN1
-     };
-   ArrayResize(m_Timeframes, ArraySize(timeframes));
-   ArrayCopy(m_Timeframes, timeframes);
-
-   m_Bars = new CHashMap<ENUM_TIMEFRAMES, int>(ArraySize(m_Timeframes));
-   m_Markers = new CHashMap<ENUM_TIMEFRAMES, bool>(ArraySize(m_Timeframes));
-   for(int i = 0; i < ArraySize(m_Timeframes); i++)
-     {
-      ENUM_TIMEFRAMES timeframe = m_Timeframes[i];
-
-      m_Bars.Add(timeframe, iBars(m_Symbol, timeframe));
-      m_Markers.Add(timeframe, false);
-     }
   }
 
 //+------------------------------------------------------------------+
@@ -83,8 +48,55 @@ NewBarEvent::NewBarEvent(string symbol, bool debug = false)
 //+------------------------------------------------------------------+
 NewBarEvent::~NewBarEvent()
   {
-   m_Bars.Clear();
-   m_Markers.Clear();
+   ArrayResize(m_Timeframes, 0);
+   ArrayResize(m_Bars, 0);
+   ArrayResize(m_Results, 0);
+  }
+
+//+------------------------------------------------------------------+
+//| Returns true if given timeframe is valid                         |
+//+------------------------------------------------------------------+
+bool NewBarEvent::IsValidTimeframe(ENUM_TIMEFRAMES timeframe)
+  {
+   if(timeframe == PERIOD_CURRENT)
+     {
+      PrintFormat("Given %s timeframe is not valid. Use {PERIOD_M1 .. PERIOD_MN1} or _Period or Period()",
+                  EnumToString(timeframe));
+      return false;
+     }
+   return true;
+  }
+
+//+------------------------------------------------------------------+
+//| Returns index of given timeframe or -1 if not found              |
+//+------------------------------------------------------------------+
+int NewBarEvent::FindTimeframeIndex(ENUM_TIMEFRAMES timeframe)
+  {
+   for(int i = 0; i < ArraySize(m_Timeframes); i++)
+     {
+      if(timeframe == m_Timeframes[i])
+        {
+         return i;
+        }
+     }
+   return -1;
+  }
+
+//+------------------------------------------------------------------+
+//| Register given timeframe                                         |
+//+------------------------------------------------------------------+
+void NewBarEvent::RegisterTimeframe(ENUM_TIMEFRAMES timeframe)
+  {
+   int index = ArraySize(m_Timeframes);
+
+   ArrayResize(m_Timeframes, index + 1);
+   m_Timeframes[index] = timeframe;
+
+   ArrayResize(m_Bars, index + 1);
+   m_Bars[index] = iBars(m_Symbol, timeframe);
+
+   ArrayResize(m_Results, index + 1);
+   m_Results[index] = false;
   }
 
 //+------------------------------------------------------------------+
@@ -96,27 +108,12 @@ void NewBarEvent::CheckAndSet()
      {
       ENUM_TIMEFRAMES timeframe = m_Timeframes[i];
 
-      int prev;
-      if(!m_Bars.TryGetValue(timeframe, prev))
-        {
-         PrintFormat("Cannot get bars count for %s timeframe", EnumToString(timeframe));
-         return;
-        }
-
+      int prev = m_Bars[i];
       int curr = iBars(m_Symbol, timeframe);
       if(prev != curr)
         {
-         if(!m_Bars.TrySetValue(timeframe, curr))
-           {
-            PrintFormat("Cannot set bars count for %s timeframe", EnumToString(timeframe));
-            return;
-           }
-
-         if(!m_Markers.TrySetValue(timeframe, true))
-           {
-            PrintFormat("Cannot set marker for %s timeframe", EnumToString(timeframe));
-            return;
-           }
+         m_Bars[i] = curr;
+         m_Results[i] = true;
 
          if(m_Debug)
            {
@@ -131,36 +128,31 @@ void NewBarEvent::CheckAndSet()
 //+------------------------------------------------------------------+
 bool NewBarEvent::On(ENUM_TIMEFRAMES timeframe)
   {
-   if(timeframe == PERIOD_CURRENT)
+   if(!IsValidTimeframe(timeframe))
      {
-      PrintFormat("Given %s timeframe is not valid. Use {PERIOD_M1 .. PERIOD_MN1} or _Period or Period()",
-                  EnumToString(timeframe));
       return false;
      }
 
-   bool result;
-   if(!m_Markers.TryGetValue(timeframe, result))
+   int i = FindTimeframeIndex(timeframe);
+   if(i == -1)
      {
-      PrintFormat("Cannot get marker for %s timeframe", EnumToString(timeframe));
+      RegisterTimeframe(timeframe);
       return false;
      }
-   return result;
+   else
+     {
+      return m_Results[i];
+     }
   }
 
 //+------------------------------------------------------------------+
-//| Resets markers for all timeframes                                |
+//| Resets results for all timeframes                                |
 //+------------------------------------------------------------------+
 void NewBarEvent::Reset()
   {
    for(int i = 0; i < ArraySize(m_Timeframes); i++)
      {
-      ENUM_TIMEFRAMES timeframe = m_Timeframes[i];
-
-      if(!m_Markers.TrySetValue(timeframe, false))
-        {
-         PrintFormat("Cannot reset marker for %s timeframe", EnumToString(timeframe));
-         return;
-        }
+      m_Results[i] = false;
      }
   }
 
@@ -169,36 +161,32 @@ void NewBarEvent::Reset()
 //+------------------------------------------------------------------+
 bool NewBarEvent::IsNewBar(ENUM_TIMEFRAMES timeframe)
   {
-   if(timeframe == PERIOD_CURRENT)
+   if(!IsValidTimeframe(timeframe))
      {
-      PrintFormat("Given %s timeframe is not valid. Use {PERIOD_M1 .. PERIOD_MN1} or _Period or Period()",
-                  EnumToString(timeframe));
       return false;
      }
 
-   int prev;
-   if(!m_Bars.TryGetValue(timeframe, prev))
+   int i = FindTimeframeIndex(timeframe);
+   if(i == -1)
      {
-      PrintFormat("Cannot get bars count for %s timeframe", EnumToString(timeframe));
+      RegisterTimeframe(timeframe);
       return false;
      }
-
-   int curr = iBars(m_Symbol, timeframe);
-   if(prev != curr)
+   else
      {
-      if(!m_Bars.TrySetValue(timeframe, curr))
+      int prev = m_Bars[i];
+      int curr = iBars(m_Symbol, timeframe);
+      if(prev != curr)
         {
-         PrintFormat("Cannot set bars count for %s timeframe", EnumToString(timeframe));
-         return false;
-        }
+         m_Bars[i] = curr;
+         m_Results[i] = true;
 
-      if(m_Debug)
-        {
-         PrintFormat("New bar appears for %s timeframe", EnumToString(timeframe));
+         if(m_Debug)
+           {
+            PrintFormat("New bar appears for %s timeframe", EnumToString(timeframe));
+           }
         }
-      return true;
+      return m_Results[i];
      }
-
-   return false;
   }
 //+------------------------------------------------------------------+
