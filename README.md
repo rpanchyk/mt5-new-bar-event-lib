@@ -9,9 +9,14 @@ Library allows to subscribe on new bar event in MetaTrader 5.
 There are two methods to use the library. See [example](MQL5/Experts/NBETestEA.mq5) expert advisor.
 
 ### Method 1
-This method is used for multiple checks of new bar event:
+This method is used for multiple checks per timeframe of new bar event:
 ```mql5
 newBar.CheckAndSet();
+
+if(newBar.IsNewBar(PERIOD_M15))
+ {
+   // your code here...
+ }
 
 if(newBar.On(PERIOD_H1))
  {
@@ -27,8 +32,13 @@ newBar.Reset();
 ```
 
 ### Method 2
-This method is used for single check of new bar event:
+This method is used for single check per timeframe of new bar event:
 ```mql5
+if(newBar.IsNewBar(PERIOD_M15))
+ {
+   // your code here...
+ }
+
 if(newBar.IsNewBar(PERIOD_H1))
  {
    // your code here...
