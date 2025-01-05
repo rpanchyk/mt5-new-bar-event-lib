@@ -13,7 +13,7 @@ This method is used for multiple checks per timeframe of new bar event:
 ```mql5
 newBar.CheckAndSet();
 
-if(newBar.IsNewBar(PERIOD_M15))
+if(newBar.On(PERIOD_M15))
  {
    // your code here...
  }
