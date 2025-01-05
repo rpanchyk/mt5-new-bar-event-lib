@@ -35,6 +35,22 @@ if(newBar.IsNewBar(PERIOD_H1))
  }
 ```
 
+### Logs
+Output logs of example EA:
+```
+2023.11.28 14:00:00   Method 1, first call: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:00
+2023.11.28 14:00:00   Method 1, second call: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:00
+2023.11.28 14:00:00   Method 2: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:00
+
+2023.11.28 14:15:00   Method 1, first call: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:15
+2023.11.28 14:15:00   Method 1, second call: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:15
+2023.11.28 14:15:00   Method 2: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:15
+
+2023.11.28 14:30:00   Method 1, first call: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:30
+2023.11.28 14:30:00   Method 1, second call: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:30
+2023.11.28 14:30:00   Method 2: new bar appears on PERIOD_M15 timeframe at 2023.11.28 14:30
+```
+
 ## Contribution
 Feel free to create an issue or a pull request if any ideas.
 
